@@ -22,7 +22,7 @@ initSocket(server);
 app.use(express.json());
 
 const corsOptions = {
-  origin: ["https://user-management-7t5g.vercel.app", "http://localhost:5173"],
+  origin: ['https://user-manager-front-ebon.vercel.app', "http://localhost:5173"],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
 };
 
