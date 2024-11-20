@@ -8,15 +8,17 @@ const initSocket = (server) => {
       origin: [
         "https://user-manager-front-ebon.vercel.app",
         "http://localhost:5173",
-      ], // Allow both localhost and production
+      ],
       methods: ["GET", "POST", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
       allowedHeaders: ["Content-Type"],
       credentials: true,
       transports: ["websocket", "polling"],
-      pingTimeout: 60000,  // Increase timeout for pinging clients
+      pingTimeout: 60000,
       pingInterval: 25000,
     },
   });
+
+  let topRankUserId = null; 
 
   io.on("connection", (socket) => {
     console.log("New client connected");
@@ -47,6 +49,7 @@ const initSocket = (server) => {
 
     setActiveStatus();
 
+    // Get initial leaderboard and emit to client
     socket.on("getRank", async () => {
       try {
         const rankData = await User.find({ role: { $ne: "admin" } })
@@ -58,6 +61,7 @@ const initSocket = (server) => {
       }
     });
 
+    // Handle player click and update rank
     socket.on("playerClick", async (userId) => {
       try {
         const user = await User.findById(userId);
@@ -71,11 +75,17 @@ const initSocket = (server) => {
           user.bananaClickCount += 1;
           await user.save();
 
-          // Emit updated rank
           const updatedRankData = await User.find({ role: { $ne: "admin" } })
             .sort({ bananaClickCount: -1 })
             .select("username bananaClickCount isActive isBlocked");
+
           io.emit("updateRank", updatedRankData);
+
+          const newTopRankUser = updatedRankData[0]; 
+          if (newTopRankUser._id.toString() !== topRankUserId) {
+            topRankUserId = newTopRankUser._id.toString();
+            io.to(socket.id).emit("topRankReached"); 
+          }
         }
       } catch (err) {
         console.error("Error processing player click:", err);
@@ -91,7 +101,6 @@ const initSocket = (server) => {
 
         const user = await User.findById(userId);
         if (user) {
-          // Only update the user status to false if they are disconnected (no active connection)
           await User.findByIdAndUpdate(
             userId,
             { isActive: false },
